@@ -86,4 +86,13 @@ abstract Proximity(Int) {
 	var Immediate = 1;
 	var Near = 2;
 	var Far = 3;
+	
+	public function toString() {
+		return switch (cast this:Proximity) {
+			case Unknown: 'Unknown';
+			case Immediate: 'Immediate';
+			case Near: 'Near';
+			case Far: 'Far';
+		}
+	}
 }
