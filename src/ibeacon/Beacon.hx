@@ -4,6 +4,31 @@ import haxe.io.Bytes;
 
 import tink.CoreApi;
 
+/*
+
+A standard BLE advertisement looks like the following (https://en.wikipedia.org/wiki/IBeacon)
+and this library parses/builds the second part (Apple Defined iBeacon Data):
+
+Byte 0-2: Standard BLE Flags
+
+ Byte 0: Length :  0x02
+ Byte 1: Type: 0x01 (Flags)
+ Byte 2: Value: 0x06 (Typical Flags)
+ 
+Byte 3-29: Apple Defined iBeacon Data
+
+ Byte 3: Length: 0x1a
+ Byte 4: Type: 0xff (Custom Manufacturer Packet)
+ Byte 5-6: Manufacturer ID : 0x4c00 (Apple)
+ Byte 7: SubType: 0x02 (iBeacon)
+ Byte 8: SubType Length: 0x15
+ Byte 9-24: UUID
+ Byte 25-26: Major
+ Byte 27-28: Minor
+ Byte 29: Signal Power (calibrated power at 1m)
+
+*/
+
 @:structInit
 class Beacon {
 	public var uuid:Bytes;
