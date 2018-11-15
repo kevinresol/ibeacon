@@ -39,6 +39,7 @@ class Beacon {
 	// ref: https://github.com/sandeepmistry/node-bleacon/blob/master/lib/bleacon.js
 	public static function parse(bytes:Bytes):Outcome<Beacon, Error> {
 		return if(
+			bytes != null &&
 			bytes.length >= 25 &&
 			bytes.get(0) == 0x4c && // APPLE_COMPANY_IDENTIFIER (Little Endian)
 			bytes.get(1) == 0x00 && // APPLE_COMPANY_IDENTIFIER (Little Endian)
