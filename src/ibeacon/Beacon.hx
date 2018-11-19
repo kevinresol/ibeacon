@@ -30,15 +30,21 @@ Byte 3-29: Apple Defined iBeacon Data
 */
 
 @:structInit
+@:jsonStringify(function(beacon) return beacon.serialize())
+@:jsonParse(function(json) return ibeacon.Beacon.parse(json))
 class Beacon {
 	public var uuid:Bytes;
 	public var major:Int;
 	public var minor:Int;
 	public var measuredPower:Int;
 	
+	public static inline function tryParse(bytes:Bytes):Outcome<Beacon, Error> {
+		return Error.catchExceptions(parse.bind(bytes));
+	}
+	
 	// ref: https://github.com/sandeepmistry/node-bleacon/blob/master/lib/bleacon.js
-	public static function parse(bytes:Bytes):Outcome<Beacon, Error> {
-		return if(
+	public static function parse(bytes:Bytes):Beacon {
+		if(
 			bytes != null &&
 			bytes.length >= 25 &&
 			bytes.get(0) == 0x4c && // APPLE_COMPANY_IDENTIFIER (Little Endian)
@@ -46,7 +52,7 @@ class Beacon {
 			bytes.get(2) == 0x02 && // IBEACON_TYPE
 			bytes.get(3) == 0x15    // EXPECTED_IBEACON_DATA_LENGTH
 		 ) {
-			Success({
+			return {
 				uuid: bytes.sub(4, 16),
 				major: bytes.get(20) << 8 | bytes.get(21),
 				minor: bytes.get(22) << 8 | bytes.get(23),
@@ -60,10 +66,10 @@ class Beacon {
 						i > 127 ? i - 256 : i;
 					#end
 				},
-			});
-		} else {
-			Failure(new Error('Not a iBeacon advertisement'));
+			}
 		}
+		
+		throw 'Not a iBeacon advertisement';
 	}
 	
 	public function getAccuracy(rssi:Int):Float {
