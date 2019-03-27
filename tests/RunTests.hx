@@ -23,7 +23,8 @@ class BeaconTest {
   public function new() {}
   
   public function parse() {
-    var beacon = Beacon.parse(hex('4c000215fda50693a4e24fb1afcfc6eb076166882714143acd')).sure();
+    var beacon = Beacon.tryParse(hex('4c000215fda50693a4e24fb1afcfc6eb076166882714143acd')).sure();
+    asserts.assert(beacon.manufacturer == 0x004c);
     asserts.assert(beacon.uuid.toHex() == 'fda50693a4e24fb1afcfc6eb07616688');
     asserts.assert(beacon.major == 10004);
     asserts.assert(beacon.minor == 5178);
@@ -32,12 +33,13 @@ class BeaconTest {
   }
   
   public function serialize() {
-    var beacon:Beacon = {
+    var beacon = new Beacon({
+      manufacturer: 0x004c,
       uuid: hex('fda50693a4e24fb1afcfc6eb07616688'),
       major: 10004,
       minor: 5178,
       measuredPower: -51
-    }
+    });
     asserts.assert(beacon.serialize().toHex() == '4c000215fda50693a4e24fb1afcfc6eb076166882714143acd');
     return asserts.done();
   }

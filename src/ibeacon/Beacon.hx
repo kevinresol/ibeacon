@@ -1,6 +1,7 @@
 package ibeacon;
 
 import haxe.io.Bytes;
+import tink.Chunk;
 
 import tink.CoreApi;
 
@@ -19,7 +20,7 @@ Byte 3-29: Apple Defined iBeacon Data
 
  Byte 3: Length: 0x1a
  Byte 4: Type: 0xff (Custom Manufacturer Packet)
- Byte 5-6: Manufacturer ID : 0x4c00 (Apple)
+ Byte 5-6: Manufacturer ID : 0x4c00 (Apple) or 0x5900 (Nordic)
  Byte 7: SubType: 0x02 (iBeacon)
  Byte 8: SubType Length: 0x15
  Byte 9-24: UUID
@@ -29,15 +30,19 @@ Byte 3-29: Apple Defined iBeacon Data
 
 */
 
-@:structInit
-@:jsonStringify(function(beacon) return beacon.serialize())
-@:jsonParse(function(json) return ibeacon.Beacon.parse(json))
-class Beacon {
-	public var uuid:Bytes;
-	public var major:Int;
-	public var minor:Int;
-	public var measuredPower:Int;
-	
+typedef Data = {
+	var manufacturer(default, never):Int;
+	var uuid(default, never):Chunk;
+	var major(default, never):Int;
+	var minor(default, never):Int;
+	var measuredPower(default, never):Int;
+}
+
+@:forward
+abstract Beacon(Data) from Data{
+	public inline function new(data)
+		this = data;
+		
 	public static inline function tryParse(bytes:Bytes):Outcome<Beacon, Error> {
 		return Error.catchExceptions(parse.bind(bytes));
 	}
@@ -47,12 +52,15 @@ class Beacon {
 		if(
 			bytes != null &&
 			bytes.length >= 25 &&
-			bytes.get(0) == 0x4c && // APPLE_COMPANY_IDENTIFIER (Little Endian)
-			bytes.get(1) == 0x00 && // APPLE_COMPANY_IDENTIFIER (Little Endian)
+			(
+				(bytes.get(0) == 0x4c && bytes.get(1) == 0x00) || // APPLE_COMPANY_IDENTIFIER (Little Endian)
+				(bytes.get(0) == 0x59 && bytes.get(1) == 0x00)  // NORDIC_COMPANY_IDENTIFIER (Little Endian)
+			) &&
 			bytes.get(2) == 0x02 && // IBEACON_TYPE
 			bytes.get(3) == 0x15    // EXPECTED_IBEACON_DATA_LENGTH
 		 ) {
-			return {
+			return new Beacon({
+				manufacturer: bytes.get(1) << 8 | bytes.get(0),
 				uuid: bytes.sub(4, 16),
 				major: bytes.get(20) << 8 | bytes.get(21),
 				minor: bytes.get(22) << 8 | bytes.get(23),
@@ -66,14 +74,14 @@ class Beacon {
 						i > 127 ? i - 256 : i;
 					#end
 				},
-			}
+			});
 		}
 		
 		throw 'Not a iBeacon advertisement';
 	}
 	
 	public function getAccuracy(rssi:Int):Float {
-		return Math.pow(12.0, 1.5 * ((rssi / measuredPower) - 1));
+		return Math.pow(12.0, 1.5 * ((rssi / this.measuredPower) - 1));
 	}
 	
 	public function getProximity(rssi:Int):Proximity {
@@ -86,30 +94,40 @@ class Beacon {
 	
 	public function serialize():Bytes {
 		var bytes = Bytes.alloc(25);
-		bytes.set(0, 0x4c);
-		bytes.set(1, 0x00);
+		bytes.set(0, this.manufacturer & 0xff);
+		bytes.set(1, this.manufacturer >> 8 & 0xff);
 		bytes.set(2, 0x02);
 		bytes.set(3, 0x15);
-		bytes.blit(4, uuid, 0, uuid.length);
-		bytes.set(20, (major >> 8) & 0xff);
-		bytes.set(21, major & 0xff);
-		bytes.set(22, (minor >> 8) & 0xff);
-		bytes.set(23, minor & 0xff);
+		bytes.blit(4, this.uuid, 0, this.uuid.length);
+		bytes.set(20, (this.major >> 8) & 0xff);
+		bytes.set(21, this.major & 0xff);
+		bytes.set(22, (this.minor >> 8) & 0xff);
+		bytes.set(23, this.minor & 0xff);
 		bytes.set(24, {
 			// int8 to uint8
 			#if js 
 				// http://blog.vjeux.com/2013/javascript/conversion-from-uint8-to-int8-x-24.html
-				measuredPower & 0xff;
+				this.measuredPower & 0xff;
 			#else
-				measuredPower < 0 ? measuredPower + 256 : measuredPower;
+				this.measuredPower < 0 ? this.measuredPower + 256 : this.measuredPower;
 			#end
 		});
 		return bytes;
 	}
 	
 	public function toString() {
-		return 'iBeacon: uuid = ${uuid.toHex()}, major = $major, minor = $minor, measuredPower = $measuredPower';
+		return 'iBeacon: uuid = ${this.uuid.toHex()}, major = ${this.major}, minor = ${this.minor}, measuredPower = ${this.measuredPower}';
 	}
+	
+	#if tink_json
+	
+	@:to inline function toRepresentation():tink.json.Representation<Bytes> 
+		return new tink.json.Representation(serialize());
+		
+	@:from static inline function ofRepresentation<T>(rep:tink.json.Representation<Bytes>):Beacon
+		return parse(rep.get());
+		
+	#end
 }
 
 @:enum
