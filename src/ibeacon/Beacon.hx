@@ -33,8 +33,7 @@ Byte 3-29: Apple Defined iBeacon Data
 typedef Data = {
 	var manufacturer(default, never):Int;
 	var uuid(default, never):Chunk;
-	var major(default, never):Int;
-	var minor(default, never):Int;
+	var id(default, never):Id;
 	var measuredPower(default, never):Int;
 }
 
@@ -62,8 +61,7 @@ abstract Beacon(Data) from Data{
 			return new Beacon({
 				manufacturer: bytes.get(1) << 8 | bytes.get(0),
 				uuid: bytes.sub(4, 16),
-				major: bytes.get(20) << 8 | bytes.get(21),
-				minor: bytes.get(22) << 8 | bytes.get(23),
+				id: new Id(bytes.getInt32(20) << 8 | bytes.get(21), bytes.get(22) << 8 | bytes.get(23)),
 				measuredPower: {
 					// uint8 to int8
 					#if js 
@@ -99,10 +97,10 @@ abstract Beacon(Data) from Data{
 		bytes.set(2, 0x02);
 		bytes.set(3, 0x15);
 		bytes.blit(4, this.uuid, 0, this.uuid.length);
-		bytes.set(20, (this.major >> 8) & 0xff);
-		bytes.set(21, this.major & 0xff);
-		bytes.set(22, (this.minor >> 8) & 0xff);
-		bytes.set(23, this.minor & 0xff);
+		bytes.set(20, (this.id.major >> 8) & 0xff);
+		bytes.set(21, this.id.major & 0xff);
+		bytes.set(22, (this.id.minor >> 8) & 0xff);
+		bytes.set(23, this.id.minor & 0xff);
 		bytes.set(24, {
 			// int8 to uint8
 			#if js 
@@ -116,7 +114,7 @@ abstract Beacon(Data) from Data{
 	}
 	
 	public function toString() {
-		return 'iBeacon: uuid = ${this.uuid.toHex()}, major = ${this.major}, minor = ${this.minor}, measuredPower = ${this.measuredPower}';
+		return 'iBeacon: uuid = ${this.uuid.toHex()}, major = ${this.id.major}, minor = ${this.id.minor}, measuredPower = ${this.measuredPower}';
 	}
 	
 	#if tink_json
